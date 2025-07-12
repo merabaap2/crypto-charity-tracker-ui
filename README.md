@@ -71,3 +71,13 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Header QA
+
+Manual test checklist for the interactive header:
+
+1. **Hover logo** → heart rotates once with smooth spring animation
+2. **Scroll down** → header shrinks smoothly from 72px to 56px with scale/opacity transition
+3. **Toggle dark mode** → header background switches correctly with theme toggle
+4. **Mobile nav opens** from left, traps focus, closes on link click with staggered animations
+5. **Wallet button pulse** stops when connected and shows formatted address with gradient badge

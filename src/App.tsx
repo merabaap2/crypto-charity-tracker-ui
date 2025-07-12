@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
-import Header from "@/components/Header";
+import InteractiveHeader from "@/components/InteractiveHeader";
 import Footer from "@/components/Footer";
 import Index from "./pages/Index";
 import CharityDetail from "./pages/CharityDetail";
@@ -24,7 +24,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">
-            <Header />
+            <InteractiveHeader />
             <main className="flex-1">
               <Routes>
                 <Route path="/" element={<Index />} />
