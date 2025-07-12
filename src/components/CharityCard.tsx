@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Heart, Target, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import DonateDialog from './DonateDialog';
+import CharityPlaceholderImage from './CharityPlaceholderImage';
 
 interface CharityCardProps {
   charity: {
@@ -17,8 +20,11 @@ interface CharityCardProps {
 }
 
 export default function CharityCard({ charity, totalDonated = "$0", donorCount = 0 }: CharityCardProps) {
+  const [isDonateDialogOpen, setIsDonateDialogOpen] = useState(false);
+
   return (
-    <Card className="group bg-gradient-card hover:shadow-hover transition-all duration-300 transform hover:scale-[1.02]">
+    <>
+      <Card className="group bg-gradient-card hover:shadow-hover transition-all duration-300 transform hover:scale-[1.02]">
       <CardHeader className="pb-4">
         <div className="flex items-start justify-between mb-2">
           <Badge variant="secondary" className="mb-2">
@@ -32,10 +38,10 @@ export default function CharityCard({ charity, totalDonated = "$0", donorCount =
         </div>
         
         <div className="aspect-video rounded-lg overflow-hidden mb-4 bg-muted">
-          <img
-            src={charity.image}
-            alt={charity.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          <CharityPlaceholderImage
+            charityId={charity.id}
+            charityName={charity.name}
+            className="w-full h-full group-hover:scale-105 transition-transform duration-300"
           />
         </div>
         
@@ -58,11 +64,13 @@ export default function CharityCard({ charity, totalDonated = "$0", donorCount =
         </div>
         
         <div className="flex gap-3">
-          <Button variant="charity" className="flex-1" asChild>
-            <Link to={`/charity/${charity.id}`}>
-              <Heart className="mr-2 h-4 w-4" />
-              Donate Now
-            </Link>
+          <Button 
+            variant="charity" 
+            className="flex-1" 
+            onClick={() => setIsDonateDialogOpen(true)}
+          >
+            <Heart className="mr-2 h-4 w-4" />
+            Donate Now
           </Button>
           <Button variant="outline" size="default" asChild>
             <Link to={`/charity/${charity.id}`}>
@@ -71,6 +79,13 @@ export default function CharityCard({ charity, totalDonated = "$0", donorCount =
           </Button>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+      
+      <DonateDialog 
+        open={isDonateDialogOpen}
+        onOpenChange={setIsDonateDialogOpen}
+        charity={charity}
+      />
+    </>
   );
 }

@@ -8,16 +8,11 @@ export const CHARITY_CONTRACT_ABI = [
         "internalType": "uint8",
         "name": "charityId",
         "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
       }
     ],
     "name": "donate",
     "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "payable",
     "type": "function"
   },
   {

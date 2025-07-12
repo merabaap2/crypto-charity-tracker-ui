@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Heart, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Heart, AlertCircle, CheckCircle, Loader2, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAccount, useConnect, useDisconnect, useWriteContract, useBalance } from 'wagmi';
+import { parseEther, formatEther } from 'viem';
+import { CHARITY_CONTRACT_ADDRESS, CHARITY_CONTRACT_ABI } from '@/lib/contracts';
+import { metaMask } from 'wagmi/connectors';
 
 interface DonateDialogProps {
   open: boolean;
@@ -21,13 +25,68 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
   const [amount, setAmount] = useState('');
   const [isApproving, setIsApproving] = useState(false);
   const [isDonating, setIsDonating] = useState(false);
-  const [step, setStep] = useState<'input' | 'approve' | 'donate' | 'success'>('input');
+  const [step, setStep] = useState<'connect' | 'input' | 'donate' | 'success'>('connect');
   const { toast } = useToast();
+  
+  // Wagmi hooks
+  const { address, isConnected } = useAccount();
+  const { connect, connectors, error: connectError } = useConnect();
+  const { disconnect } = useDisconnect();
+  const { writeContract, data: hash, isPending: isWritePending, error: writeError } = useWriteContract();
+  
+  // Get user's MON balance
+  const { data: balance, refetch: refetchBalance } = useBalance({
+    address: address,
+    query: { enabled: !!address }
+  });
+  
+  const userBalance = balance ? parseFloat(formatEther(balance.value)) : 0;
+  
+  // Update step based on connection status
+  useEffect(() => {
+    if (isConnected && step === 'connect') {
+      setStep('input');
+    } else if (!isConnected && step !== 'connect') {
+      setStep('connect');
+    }
+  }, [isConnected, step]);
+  
+  // Handle connection errors
+  useEffect(() => {
+    if (connectError) {
+      toast({
+        title: "Connection Failed",
+        description: connectError.message,
+        variant: "destructive",
+      });
+    }
+  }, [connectError, toast]);
+  
+  // Handle write contract errors
+  useEffect(() => {
+    if (writeError) {
+      toast({
+        title: "Transaction Failed",
+        description: writeError.message,
+        variant: "destructive",
+      });
+    }
+  }, [writeError, toast]);
 
-  // Mock user balance
-  const userBalance = 1000; // USDC
+  const handleConnectWallet = async () => {
+    const metaMaskConnector = connectors.find(c => c.id === 'metaMask');
+    if (metaMaskConnector) {
+      await connect({ connector: metaMaskConnector });
+    } else {
+      toast({
+        title: "MetaMask Not Found",
+        description: "Please install MetaMask to continue.",
+        variant: "destructive",
+      });
+    }
+  };
 
-  const handleApprove = async () => {
+  const handleProceedToDonate = async () => {
     if (!amount || parseFloat(amount) <= 0) {
       toast({
         title: "Invalid Amount",
@@ -40,42 +99,47 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
     if (parseFloat(amount) > userBalance) {
       toast({
         title: "Insufficient Balance",
-        description: "You don't have enough USDC for this donation.",
+        description: "You don't have enough MON for this donation.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsApproving(true);
-    
-    // Simulate approval transaction
-    setTimeout(() => {
-      setIsApproving(false);
-      setStep('donate');
-      toast({
-        title: "Approval Successful",
-        description: "USDC spending approved. You can now complete your donation.",
-      });
-    }, 2000);
+    // Since we're using native tokens, no approval needed
+    setStep('donate');
   };
 
   const handleDonate = async () => {
     setIsDonating(true);
     
-    // Simulate donation transaction
-    setTimeout(() => {
-      setIsDonating(false);
-      setStep('success');
-      toast({
-        title: "Donation Successful! 🎉",
-        description: `Thank you for donating $${amount} USDC to ${charity.name}`,
+    try {
+      await writeContract({
+        address: CHARITY_CONTRACT_ADDRESS,
+        abi: CHARITY_CONTRACT_ABI,
+        functionName: 'donate',
+        args: [charity.id],
+        value: parseEther(amount),
       });
-    }, 3000);
+      
+      // Wait for transaction
+      setTimeout(async () => {
+        await refetchBalance();
+        setIsDonating(false);
+        setStep('success');
+        toast({
+          title: "Donation Successful! 🎉",
+          description: `Thank you for donating ${amount} MON to ${charity.name}`,
+        });
+      }, 3000);
+    } catch (error) {
+      setIsDonating(false);
+      console.error('Donation failed:', error);
+    }
   };
 
   const resetDialog = () => {
     setAmount('');
-    setStep('input');
+    setStep(isConnected ? 'input' : 'connect');
     setIsApproving(false);
     setIsDonating(false);
   };
@@ -87,15 +151,15 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
 
   const getStepInfo = () => {
     switch (step) {
+      case 'connect':
+        return {
+          title: "Connect Your Wallet",
+          description: "Connect MetaMask to start donating to charity",
+        };
       case 'input':
         return {
           title: `Donate to ${charity.name}`,
-          description: "Enter the amount you'd like to donate in USDC",
-        };
-      case 'approve':
-        return {
-          title: "Approve USDC Spending",
-          description: "Authorize the smart contract to spend your USDC tokens",
+          description: "Enter the amount you'd like to donate in MON",
         };
       case 'donate':
         return {
@@ -142,11 +206,50 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
             </div>
           </div>
 
+          {/* Wallet Info */}
+          {isConnected && (
+            <div className="p-3 bg-primary/5 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Connected Wallet</p>
+                  <p className="text-xs text-muted-foreground">
+                    {address?.slice(0, 6)}...{address?.slice(-4)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium">{userBalance.toFixed(4)} MON</p>
+                  <p className="text-xs text-muted-foreground">Balance</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Step Content */}
+          {step === 'connect' && (
+            <div className="space-y-4 text-center">
+              <div className="p-4 bg-primary/5 rounded-lg">
+                <Wallet className="h-8 w-8 text-primary mx-auto mb-2" />
+                <p className="text-sm">
+                  Connect your MetaMask wallet to donate to {charity.name}.
+                  Make sure you have MON tokens in your wallet and are connected to Monad network.
+                </p>
+              </div>
+
+              <Button
+                variant="charity"
+                className="w-full"
+                onClick={handleConnectWallet}
+              >
+                <Wallet className="mr-2 h-4 w-4" />
+                Connect MetaMask
+              </Button>
+            </div>
+          )}
+
           {step === 'input' && (
             <div className="space-y-4">
               <div>
-                <Label htmlFor="amount">Donation Amount (USDC)</Label>
+                <Label htmlFor="amount">Donation Amount (MON)</Label>
                 <div className="relative mt-1">
                   <Input
                     id="amount"
@@ -157,24 +260,24 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
                     className="pr-16"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                    <span className="text-sm text-muted-foreground">USDC</span>
+                    <span className="text-sm text-muted-foreground">MON</span>
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Balance: {userBalance.toLocaleString()} USDC
+                  Balance: {userBalance.toFixed(4)} MON
                 </p>
               </div>
 
               {/* Quick amount buttons */}
               <div className="grid grid-cols-4 gap-2">
-                {['10', '25', '50', '100'].map((preset) => (
+                {['0.1', '0.5', '1', '5'].map((preset) => (
                   <Button
                     key={preset}
                     variant="outline"
                     size="sm"
                     onClick={() => setAmount(preset)}
                   >
-                    ${preset}
+                    {preset} MON
                   </Button>
                 ))}
               </div>
@@ -182,42 +285,21 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
               <Button
                 variant="charity"
                 className="w-full"
-                onClick={handleApprove}
+                onClick={handleProceedToDonate}
                 disabled={!amount || parseFloat(amount) <= 0}
               >
-                Continue to Approve
+                Continue to Donate
               </Button>
             </div>
           )}
 
-          {step === 'approve' && (
-            <div className="space-y-4 text-center">
-              <div className="p-4 bg-primary/5 rounded-lg">
-                <AlertCircle className="h-8 w-8 text-primary mx-auto mb-2" />
-                <p className="text-sm">
-                  You need to approve spending of <strong>${amount} USDC</strong> before you can donate.
-                  This is a one-time approval for this donation amount.
-                </p>
-              </div>
-
-              <Button
-                variant="charity"
-                className="w-full"
-                onClick={handleApprove}
-                disabled={isApproving}
-              >
-                {isApproving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isApproving ? 'Approving...' : `Approve $${amount} USDC`}
-              </Button>
-            </div>
-          )}
 
           {step === 'donate' && (
             <div className="space-y-4 text-center">
               <div className="p-4 bg-primary/5 rounded-lg">
                 <Heart className="h-8 w-8 text-primary mx-auto mb-2" />
                 <p className="text-sm">
-                  Ready to donate <strong>${amount} USDC</strong> to {charity.name}.
+                  Ready to donate <strong>{amount} MON</strong> to {charity.name}.
                   Confirm this transaction in your wallet.
                 </p>
               </div>
@@ -229,7 +311,7 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
                 disabled={isDonating}
               >
                 {isDonating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isDonating ? 'Processing Donation...' : `Donate $${amount} USDC`}
+                {isDonating ? 'Processing Donation...' : `Donate ${amount} MON`}
               </Button>
             </div>
           )}
@@ -239,13 +321,23 @@ export default function DonateDialog({ open, onOpenChange, charity }: DonateDial
               <div className="p-4 bg-success/5 rounded-lg">
                 <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
                 <p className="text-sm">
-                  Your donation of <strong>${amount} USDC</strong> has been successfully sent to {charity.name}.
+                  Your donation of <strong>{amount} MON</strong> has been successfully sent to {charity.name}.
                 </p>
               </div>
 
-              <div className="text-xs text-muted-foreground">
-                Transaction Hash: 0x1234...5678
-              </div>
+              {hash && (
+                <div className="text-xs text-muted-foreground break-all">
+                  <p>Transaction Hash:</p>
+                  <p className="font-mono">{hash}</p>
+                  <Button
+                    variant="link"
+                    className="h-auto p-0 text-xs"
+                    onClick={() => window.open(`https://testnet-explorer.monad.xyz/tx/${hash}`, '_blank')}
+                  >
+                    View on Explorer
+                  </Button>
+                </div>
+              )}
 
               <Button
                 variant="charity"

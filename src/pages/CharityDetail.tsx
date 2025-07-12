@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { CHARITIES } from '@/lib/contracts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,10 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Heart, Users, Target, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import DonateDialog from '@/components/DonateDialog';
+import CharityPlaceholderImage from '@/components/CharityPlaceholderImage';
 
 export default function CharityDetail() {
   const { id } = useParams<{ id: string }>();
   const charity = CHARITIES.find(c => c.id === parseInt(id || '0'));
+  const [isDonateDialogOpen, setIsDonateDialogOpen] = useState(false);
 
   if (!charity) {
     return (
@@ -83,7 +87,12 @@ export default function CharityDetail() {
             </Card>
           </div>
 
-          <Button variant="charity" size="lg" className="w-full">
+          <Button 
+            variant="charity" 
+            size="lg" 
+            className="w-full" 
+            onClick={() => setIsDonateDialogOpen(true)}
+          >
             <Heart className="mr-2 h-5 w-5" />
             Donate Now
           </Button>
@@ -91,10 +100,10 @@ export default function CharityDetail() {
 
         <Card className="bg-gradient-card">
           <CardContent className="p-0">
-            <img
-              src="/placeholder.svg"
-              alt={charity.name}
-              className="w-full h-80 object-cover rounded-lg"
+            <CharityPlaceholderImage
+              charityId={charity.id}
+              charityName={charity.name}
+              className="w-full h-80 rounded-lg"
             />
           </CardContent>
         </Card>
@@ -147,6 +156,12 @@ export default function CharityDetail() {
           </div>
         </CardContent>
       </Card>
+      
+      <DonateDialog 
+        open={isDonateDialogOpen}
+        onOpenChange={setIsDonateDialogOpen}
+        charity={charity}
+      />
     </div>
   );
 }
