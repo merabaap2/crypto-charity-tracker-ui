@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/431816a8-0404-474d-a4bb-cf079ad4095a
+**URL**: https://crypto-charity-tracker-ui-goug.vercel.app
 
 ## How can I edit this code?
 
@@ -10,7 +10,7 @@ There are several ways of editing your application.
 
 **Use Lovable**
 
-Simply visit the [Lovable Project](https://crypto-charity-tracker-ui-goug.vercel.app) and start prompting.
+Simply visit the [(https://crypto-charity-tracker-ui-goug.vercel.app) and start prompting.
 
 Changes made via Lovable will be committed automatically to this repo.
 
